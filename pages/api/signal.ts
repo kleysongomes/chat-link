@@ -12,7 +12,7 @@ const SocketHandler = (req: any, res: any) => {
         const usersArray = Array.from(users);
         socket.emit('all users', usersArray.filter(id => id !== socket.id));
 
-        socket.broadcast.to(roomID).emit('user joined', { signal: null, callerID: socket.id });
+        socket.broadcast.to(roomID).emit('user joined', { callerID: socket.id });
 
         socket.on('sending signal', payload => {
           io.to(payload.userToSignal).emit('receiving signal', { signal: payload.signal, callerID: payload.callerID });
