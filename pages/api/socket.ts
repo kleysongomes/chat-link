@@ -20,7 +20,7 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
     const io = new Server(res.socket.server, {
       path: '/api/socket', // Certifique-se de que o cliente use este caminho
       cors: {
-        origin: "*", // Ajuste conforme necessário para seu domínio de frontend
+        origin: "https://chat-link-alpha.vercel.app/", // Ajuste conforme necessário para seu domínio de frontend
         methods: ["GET", "POST"],
         allowedHeaders: ["Content-Type"],
         credentials: true
