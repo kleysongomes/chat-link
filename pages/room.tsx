@@ -9,45 +9,55 @@ const Room = () => {
   const socketRef = useRef<any>();
   const userVideo = useRef<HTMLVideoElement>(null);
   const peersRef = useRef<{ peerID: string, peer: Peer.Instance }[]>([]);
-  const roomID = new URLSearchParams(window.location.search).get('roomId');
+  const [roomID, setRoomID] = useState<string | null>(null);
 
   useEffect(() => {
-    socketRef.current = io('/'); // Conecte ao seu servidor de sinalização
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-      if (userVideo.current) {
-        userVideo.current.srcObject = stream;
-      }
+    // Garantir que o código seja executado apenas no lado do cliente
+    if (typeof window !== 'undefined') {
+      const roomId = new URLSearchParams(window.location.search).get('roomId');
+      setRoomID(roomId);
+    }
+  }, []);
 
-      socketRef.current.emit('join room', roomID);
-      socketRef.current.on('all users', (users: any[]) => {
-        const peers: Peer.Instance[] = [];
-        users.forEach(userID => {
-          const peer = createPeer(userID, socketRef.current.id, stream);
+  useEffect(() => {
+    if (roomID) {
+      socketRef.current = io('/'); // Conecte ao seu servidor de sinalização
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+        if (userVideo.current) {
+          userVideo.current.srcObject = stream;
+        }
+
+        socketRef.current.emit('join room', roomID);
+        socketRef.current.on('all users', (users: any[]) => {
+          const peers: Peer.Instance[] = [];
+          users.forEach(userID => {
+            const peer = createPeer(userID, socketRef.current.id, stream);
+            peersRef.current.push({
+              peerID: userID,
+              peer,
+            });
+            peers.push(peer);
+          });
+          setPeers(peers);
+        });
+
+        socketRef.current.on('user joined', (payload: { signal: any, callerID: string }) => {
+          const peer = addPeer(payload.signal, payload.callerID, stream);
           peersRef.current.push({
-            peerID: userID,
+            peerID: payload.callerID,
             peer,
           });
-          peers.push(peer);
-        });
-        setPeers(peers);
-      });
 
-      socketRef.current.on('user joined', (payload: { signal: any, callerID: string }) => {
-        const peer = addPeer(payload.signal, payload.callerID, stream);
-        peersRef.current.push({
-          peerID: payload.callerID,
-          peer,
+          setPeers(users => [...users, peer]);
         });
 
-        setPeers(users => [...users, peer]);
+        socketRef.current.on('receiving returned signal', (payload: { id: string, signal: any }) => {
+          const item = peersRef.current.find(p => p.peerID === payload.id);
+          item?.peer.signal(payload.signal);
+        });
       });
-
-      socketRef.current.on('receiving returned signal', (payload: { id: string, signal: any }) => {
-        const item = peersRef.current.find(p => p.peerID === payload.id);
-        item?.peer.signal(payload.signal);
-      });
-    });
-  }, []);
+    }
+  }, [roomID]);
 
   function createPeer(userToSignal: string, callerID: string, stream: MediaStream) {
     const peer = new Peer({
