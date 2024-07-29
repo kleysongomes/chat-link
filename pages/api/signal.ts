@@ -22,6 +22,14 @@ const SocketHandler = (req: any, res: any) => {
           io.to(payload.callerID).emit('receiving returned signal', { signal: payload.signal, id: socket.id });
         });
 
+        socket.on('close room', roomID => {
+          io.in(roomID).emit('close room');
+        });
+
+        socket.on('leave room', roomID => {
+          socket.leave(roomID);
+        });
+
         socket.on('disconnect', () => {
           socket.broadcast.to(roomID).emit('user left', socket.id);
         });

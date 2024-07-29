@@ -10,6 +10,7 @@ const Room = () => {
   const userVideo = useRef<HTMLVideoElement>(null);
   const peersRef = useRef<{ peerID: string, peer: Peer.Instance }[]>([]);
   const [roomID, setRoomID] = useState<string | null>(null);
+  const [isCreator, setIsCreator] = useState<boolean>(false); // Indica se o usuário é o criador da sala
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -28,6 +29,9 @@ const Room = () => {
 
         socketRef.current.emit('join room', roomID);
         socketRef.current.on('all users', (users: any[]) => {
+          if (users.length === 0) {
+            setIsCreator(true); // Se o usuário é o primeiro na sala, ele é o criador
+          }
           const peers: Peer.Instance[] = [];
           users.forEach(userID => {
             const peer = createPeer(userID, socketRef.current.id, stream);
@@ -64,9 +68,25 @@ const Room = () => {
           peersRef.current = peers;
           setPeers(peers);
         });
+
+        socketRef.current.on('close room', () => {
+          handleLeaveCall(true);
+        });
       });
     }
   }, [roomID]);
+
+  const handleLeaveCall = (forceLeave = false) => {
+    peersRef.current.forEach(({ peer }) => peer.destroy());
+    if (socketRef.current) {
+      socketRef.current.emit('leave room', roomID); // Notifica o servidor de que o usuário saiu
+      if (isCreator && !forceLeave) {
+        socketRef.current.emit('close room', roomID); // Notifica todos para sair da sala
+      }
+      socketRef.current.disconnect();
+    }
+    window.location.href = '/';
+  };
 
   function createPeer(userToSignal: string, callerID: string, stream: MediaStream) {
     const peer = new Peer({
@@ -97,15 +117,18 @@ const Room = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-      <div style={{ width: 'calc(100% / 3)', height: 'calc(100% / 3)' }}>
-        <video ref={userVideo} autoPlay playsInline muted style={{ width: '100%', height: '100%' }} />
-      </div>
-      {peers.map((peer, index) => (
-        <div key={index} style={{ width: 'calc(100% / 3)', height: 'calc(100% / 3)' }}>
-          <VideoPlayer stream={peer.streams[0]} />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', height: '100vh' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
+        <div style={{ width: 'calc(100% / 3)', height: 'calc(100% / 3)' }}>
+          <video ref={userVideo} autoPlay playsInline muted style={{ width: '100%', height: '100%' }} />
         </div>
-      ))}
+        {peers.map((peer, index) => (
+          <div key={index} style={{ width: 'calc(100% / 3)', height: 'calc(100% / 3)' }}>
+            <VideoPlayer stream={peer.streams[0]} />
+          </div>
+        ))}
+      </div>
+      <button onClick={() => handleLeaveCall()} style={{ margin: '20px', padding: '10px 20px', fontSize: '16px' }}>Leave Call</button>
     </div>
   );
 };
