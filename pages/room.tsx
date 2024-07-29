@@ -40,19 +40,19 @@ const Room = () => {
           setPeers(peers);
         });
 
-        socketRef.current.on('user joined', (payload: { signal: any, callerID: string }) => {
-          const peer = addPeer(payload.signal, payload.callerID, stream);
+        socketRef.current.on('user joined', ({ callerID }) => {
+          const peer = addPeer(callerID, stream);
           peersRef.current.push({
-            peerID: payload.callerID,
+            peerID: callerID,
             peer,
           });
 
           setPeers(users => [...users, peer]);
         });
 
-        socketRef.current.on('receiving returned signal', (payload: { id: string, signal: any }) => {
-          const item = peersRef.current.find(p => p.peerID === payload.id);
-          item?.peer.signal(payload.signal);
+        socketRef.current.on('receiving returned signal', ({ id, signal }) => {
+          const item = peersRef.current.find(p => p.peerID === id);
+          item?.peer.signal(signal);
         });
 
         socketRef.current.on('user left', id => {
@@ -82,7 +82,7 @@ const Room = () => {
     return peer;
   }
 
-  function addPeer(incomingSignal: any, callerID: string, stream: MediaStream) {
+  function addPeer(callerID: string, stream: MediaStream) {
     const peer = new Peer({
       initiator: false,
       trickle: false,
@@ -93,20 +93,11 @@ const Room = () => {
       socketRef.current.emit('returning signal', { signal, callerID });
     });
 
-    peer.signal(incomingSignal);
-
     return peer;
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: '10px',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh'
-    }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
       <div style={{ width: 'calc(100% / 3)', height: 'calc(100% / 3)' }}>
         <video ref={userVideo} autoPlay playsInline muted style={{ width: '100%', height: '100%' }} />
       </div>
