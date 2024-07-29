@@ -15,13 +15,21 @@ const checkRoomHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) =
   if (req.method === 'GET') {
     const { roomId } = req.query;
 
+    if (!roomId || typeof roomId !== 'string') {
+      res.status(400).json({ error: 'Invalid room ID' });
+      return;
+    }
+
     if (res.socket.server.io) {
-      const roomExists = res.socket.server.io.sockets.adapter.rooms.has(roomId as string);
+      console.log(`Checking if room exists: ${roomId}`);
+      const roomExists = res.socket.server.io.sockets.adapter.rooms.has(roomId);
       res.status(200).json({ exists: roomExists });
     } else {
-      res.status(500).json({ error: 'Socket server not initialized' });
+      console.error('Socket.io server not initialized');
+      res.status(500).json({ error: 'Socket.io server not initialized' });
     }
   } else {
+    console.warn(`Method ${req.method} not allowed`);
     res.status(405).json({ error: 'Method not allowed' });
   }
 };

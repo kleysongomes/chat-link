@@ -28,7 +28,7 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx"
-  ],
+, "pages/api/socket.ts"  ],
   "exclude": [
     "node_modules"
   ]

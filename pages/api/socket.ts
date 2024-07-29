@@ -1,13 +1,13 @@
+// pages/api/socket.ts
 import { Server } from 'socket.io';
 import { NextApiRequest, NextApiResponse } from 'next';
 import { Server as HttpServer } from 'http';
 import { Socket as NetSocket } from 'net';
-import { DefaultEventsMap } from 'socket.io/dist/typed-events';
 
 type NextApiResponseWithSocket = NextApiResponse & {
   socket: NetSocket & {
     server: HttpServer & {
-      io?: Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any>;
+      io?: Server;
     };
   };
 };
@@ -15,16 +15,21 @@ type NextApiResponseWithSocket = NextApiResponse & {
 const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
   if (!res.socket.server.io) {
     console.log('Initializing new Socket.io server...');
+
+    // Corrigindo o caminho para incluir a barra inicial
     const io = new Server(res.socket.server, {
-      path: '/api/socket',
+      path: '/api/socket', // Certifique-se de que o cliente use este caminho
     });
+
     res.socket.server.io = io;
 
     io.on('connection', socket => {
       console.log('User connected:', socket.id);
 
       socket.on('join room', roomID => {
+        console.log(`User ${socket.id} joining room: ${roomID}`);
         socket.join(roomID);
+
         const users = io.sockets.adapter.rooms.get(roomID) || new Set();
         const usersArray = Array.from(users);
         socket.emit('all users', usersArray.filter(id => id !== socket.id));
@@ -57,7 +62,7 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
     console.log('Socket.io server already running');
   }
 
-  res.end();
+  res.end(); // Finaliza a resposta para o Next.js
 };
 
 export default SocketHandler;

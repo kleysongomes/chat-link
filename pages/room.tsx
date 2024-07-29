@@ -1,3 +1,4 @@
+// Room Component
 import { useEffect, useRef, useState } from 'react';
 import io from 'socket.io-client';
 import Peer from 'simple-peer';
@@ -10,85 +11,118 @@ const Room = () => {
   const userVideo = useRef<HTMLVideoElement>(null);
   const peersRef = useRef<{ peerID: string, peer: Peer.Instance }[]>([]);
   const [roomID, setRoomID] = useState<string | null>(null);
-  const [isCreator, setIsCreator] = useState<boolean>(false); // Indica se o usuário é o criador da sala
+  const [isCreator, setIsCreator] = useState<boolean>(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const roomId = new URLSearchParams(window.location.search).get('roomId');
       setRoomID(roomId);
+      console.log('Room ID:', roomId);
     }
   }, []);
 
   useEffect(() => {
     if (roomID) {
-      socketRef.current = io('/'); // Conecte ao seu servidor de sinalização
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-        if (userVideo.current) {
-          userVideo.current.srcObject = stream;
-        }
+      console.log('Connecting to socket...');
+      // Certifique-se de que o caminho no cliente corresponda ao caminho do servidor
+      socketRef.current = io('http://localhost:3000', { path: '/api/socket' });
 
-        socketRef.current.emit('join room', roomID);
-        socketRef.current.on('all users', (users: any[]) => {
-          if (users.length === 0) {
-            setIsCreator(true); // Se o usuário é o primeiro na sala, ele é o criador
+      socketRef.current.on('connect', () => {
+        console.log('Connected to socket with ID:', socketRef.current.id);
+      });
+
+      socketRef.current.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+      });
+
+      socketRef.current.on('error', (error) => {
+        console.error('Socket error:', error);
+      });
+
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+          console.log('Got user media stream');
+          if (userVideo.current) {
+            userVideo.current.srcObject = stream;
           }
-          const peers: Peer.Instance[] = [];
-          users.forEach(userID => {
-            const peer = createPeer(userID, socketRef.current.id, stream);
+
+          socketRef.current.emit('join room', roomID);
+          console.log('Joining room:', roomID);
+
+          socketRef.current.on('all users', (users: any[]) => {
+            console.log('All users in room:', users);
+            if (users.length === 0) {
+              setIsCreator(true);
+              console.log('User is the creator of the room');
+            }
+            const peers: Peer.Instance[] = [];
+            users.forEach(userID => {
+              const peer = createPeer(userID, socketRef.current.id, stream);
+              peersRef.current.push({
+                peerID: userID,
+                peer,
+              });
+              peers.push(peer);
+            });
+            setPeers(peers);
+          });
+
+          socketRef.current.on('user joined', ({ callerID }) => {
+            console.log('User joined with ID:', callerID);
+            const peer = addPeer(callerID, stream);
             peersRef.current.push({
-              peerID: userID,
+              peerID: callerID,
               peer,
             });
-            peers.push(peer);
-          });
-          setPeers(peers);
-        });
-
-        socketRef.current.on('user joined', ({ callerID }) => {
-          const peer = addPeer(callerID, stream);
-          peersRef.current.push({
-            peerID: callerID,
-            peer,
+            setPeers(users => [...users, peer]);
           });
 
-          setPeers(users => [...users, peer]);
-        });
+          socketRef.current.on('receiving returned signal', ({ id, signal }) => {
+            console.log('Receiving returned signal from user:', id);
+            const item = peersRef.current.find(p => p.peerID === id);
+            item?.peer.signal(signal);
+          });
 
-        socketRef.current.on('receiving returned signal', ({ id, signal }) => {
-          const item = peersRef.current.find(p => p.peerID === id);
-          item?.peer.signal(signal);
-        });
+          socketRef.current.on('user left', id => {
+            console.log('User left with ID:', id);
+            const peerObj = peersRef.current.find(p => p.peerID === id);
+            if (peerObj) {
+              peerObj.peer.destroy();
+            }
+            const peers = peersRef.current.filter(p => p.peerID !== id);
+            peersRef.current = peers;
+            setPeers(peers);
+          });
 
-        socketRef.current.on('user left', id => {
-          const peerObj = peersRef.current.find(p => p.peerID === id);
-          if (peerObj) {
-            peerObj.peer.destroy();
-          }
-          const peers = peersRef.current.filter(p => p.peerID !== id);
-          peersRef.current = peers;
-          setPeers(peers);
+          socketRef.current.on('close room', () => {
+            console.log('Room closed');
+            handleLeaveCall(true);
+          });
+        })
+        .catch(error => {
+          console.error('Error getting user media:', error);
         });
-
-        socketRef.current.on('close room', () => {
-          handleLeaveCall(true);
-        });
-      });
     }
   }, [roomID]);
 
   const handleLeaveCall = (forceLeave = false) => {
+    console.log('Leaving call...');
     peersRef.current.forEach(({ peer }) => peer.destroy());
     if (socketRef.current) {
-      socketRef.current.emit('leave room', roomID); // Notifica o servidor de que o usuário saiu
+      socketRef.current.emit('leave room', roomID);
+      console.log('Emitting leave room event for room ID:', roomID);
       if (isCreator && !forceLeave) {
-        socketRef.current.emit('close room', roomID); // Notifica todos para sair da sala
+        socketRef.current.emit('close room', roomID);
+        console.log('Emitting close room event for room ID:', roomID);
       }
       socketRef.current.disconnect();
+      console.log('Disconnected from socket');
     }
     window.location.href = '/';
   };
 
   function createPeer(userToSignal: string, callerID: string, stream: MediaStream) {
+    console.log('Creating peer with userToSignal:', userToSignal, 'callerID:', callerID);
     const peer = new Peer({
       initiator: true,
       trickle: false,
@@ -96,6 +130,7 @@ const Room = () => {
     });
 
     peer.on('signal', signal => {
+      console.log('Sending signal to user:', userToSignal);
       socketRef.current.emit('sending signal', { userToSignal, callerID, signal });
     });
 
@@ -103,6 +138,7 @@ const Room = () => {
   }
 
   function addPeer(callerID: string, stream: MediaStream) {
+    console.log('Adding peer with callerID:', callerID);
     const peer = new Peer({
       initiator: false,
       trickle: false,
@@ -110,6 +146,7 @@ const Room = () => {
     });
 
     peer.on('signal', signal => {
+      console.log('Returning signal to user:', callerID);
       socketRef.current.emit('returning signal', { signal, callerID });
     });
 
