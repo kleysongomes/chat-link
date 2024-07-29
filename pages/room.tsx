@@ -25,7 +25,8 @@ const Room = () => {
     if (roomID) {
       console.log('Connecting to socket...');
       // Certifique-se de que o caminho no cliente corresponda ao caminho do servidor
-      socketRef.current = io('http://localhost:3000', { path: '/api/socket' });
+      // socketRef.current = io('http://localhost:3000', { path: '/api/socket' });
+      socketRef.current = io('https://chat-link-alpha.vercel.app/', { path: '/api/socket' });
 
       socketRef.current.on('connect', () => {
         console.log('Connected to socket with ID:', socketRef.current.id);
