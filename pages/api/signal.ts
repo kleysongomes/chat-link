@@ -1,32 +1,38 @@
 import { Server } from 'socket.io';
+import { NextApiRequest, NextApiResponse } from 'next';
+import { DefaultEventsMap } from 'socket.io/dist/typed-events';
 
-const SocketHandler = (req: any, res: any) => {
-  if (!res.socket.server.io) {
-    const io = new Server(res.socket.server);
-    res.socket.server.io = io;
+let io: Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any> | null = null;
+
+const SocketHandler = (req: NextApiRequest, res: NextApiResponse) => {
+  if (!io) {
+    io = new Server({
+      path: '/api/socket',
+    });
 
     io.on('connection', socket => {
       socket.on('join room', roomID => {
         socket.join(roomID);
-        const users = io.sockets.adapter.rooms.get(roomID) || new Set();
+        const users = io?.sockets.adapter.rooms.get(roomID) || new Set();
         const usersArray = Array.from(users);
         socket.emit('all users', usersArray.filter(id => id !== socket.id));
 
         socket.broadcast.to(roomID).emit('user joined', { callerID: socket.id });
 
         socket.on('sending signal', payload => {
-          io.to(payload.userToSignal).emit('receiving signal', { signal: payload.signal, callerID: payload.callerID });
+          io?.to(payload.userToSignal).emit('receiving signal', { signal: payload.signal, callerID: payload.callerID });
         });
 
         socket.on('returning signal', payload => {
-          io.to(payload.callerID).emit('receiving returned signal', { signal: payload.signal, id: socket.id });
+          io?.to(payload.callerID).emit('receiving returned signal', { signal: payload.signal, id: socket.id });
         });
 
-        socket.on('close room', roomID => {
-          io.in(roomID).emit('close room');
+        socket.on('close room', () => {
+          io?.in(roomID).emit('close room');
+          io?.socketsLeave(roomID);
         });
 
-        socket.on('leave room', roomID => {
+        socket.on('leave room', () => {
           socket.leave(roomID);
         });
 
@@ -36,6 +42,7 @@ const SocketHandler = (req: any, res: any) => {
       });
     });
   }
+
   res.end();
 };
 
