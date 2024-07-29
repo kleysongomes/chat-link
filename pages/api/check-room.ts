@@ -4,25 +4,15 @@ import { Server } from 'socket.io';
 let io: Server | null = null;
 
 export default (req: NextApiRequest, res: NextApiResponse) => {
-  if (!io) {
-    io = new Server(3001, {
-      cors: {
-        origin: '*',
-      },
-    });
-
-    io.on('connection', socket => {
-      socket.on('join room', roomID => {
-        socket.join(roomID);
-      });
-
-      socket.on('disconnect', () => {
-        // Handle user disconnecting
-      });
-    });
-  }
-
   if (req.method === 'GET') {
+    if (!io) {
+      io = new Server({
+        cors: {
+          origin: '*',
+        },
+      });
+    }
+
     const { roomId } = req.query;
     const roomExists = io.sockets.adapter.rooms.has(roomId as string);
     res.status(200).json({ exists: roomExists });
