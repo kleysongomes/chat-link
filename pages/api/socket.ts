@@ -16,11 +16,10 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
   if (!res.socket.server.io) {
     console.log('Initializing new Socket.io server...');
 
-    // Inicializa o servidor Socket.io com o caminho e opções de CORS configurados
     const io = new Server(res.socket.server, {
-      path: '/api/socket', // Certifique-se de que o cliente use este caminho
+      path: '/api/socket',
       cors: {
-        origin: "https://chat-link-alpha.vercel.app/", // Ajuste conforme necessário para seu domínio de frontend
+        origin: ["https://chat-link-alpha.vercel.app"], // ou o domínio apropriado
         methods: ["GET", "POST"],
         allowedHeaders: ["Content-Type"],
         credentials: true
