@@ -16,17 +16,23 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
   if (!res.socket.server.io) {
     console.log('Initializing new Socket.io server...');
 
-    // Corrigindo o caminho para incluir a barra inicial
+    // Inicializa o servidor Socket.io com o caminho e opções de CORS configurados
     const io = new Server(res.socket.server, {
       path: '/api/socket', // Certifique-se de que o cliente use este caminho
+      cors: {
+        origin: "*", // Ajuste conforme necessário para seu domínio de frontend
+        methods: ["GET", "POST"],
+        allowedHeaders: ["Content-Type"],
+        credentials: true
+      }
     });
 
     res.socket.server.io = io;
 
-    io.on('connection', socket => {
+    io.on('connection', (socket) => {
       console.log('User connected:', socket.id);
 
-      socket.on('join room', roomID => {
+      socket.on('join room', (roomID) => {
         console.log(`User ${socket.id} joining room: ${roomID}`);
         socket.join(roomID);
 
@@ -36,11 +42,11 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
 
         socket.broadcast.to(roomID).emit('user joined', { callerID: socket.id });
 
-        socket.on('sending signal', payload => {
+        socket.on('sending signal', (payload) => {
           io.to(payload.userToSignal).emit('receiving signal', { signal: payload.signal, callerID: payload.callerID });
         });
 
-        socket.on('returning signal', payload => {
+        socket.on('returning signal', (payload) => {
           io.to(payload.callerID).emit('receiving returned signal', { signal: payload.signal, id: socket.id });
         });
 
