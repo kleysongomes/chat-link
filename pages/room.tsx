@@ -12,7 +12,6 @@ const Room = () => {
   const [roomID, setRoomID] = useState<string | null>(null);
 
   useEffect(() => {
-    // Verificar se o código está sendo executado no cliente
     if (typeof window !== 'undefined') {
       const roomId = new URLSearchParams(window.location.search).get('roomId');
       setRoomID(roomId);
@@ -100,10 +99,21 @@ const Room = () => {
   }
 
   return (
-    <div>
-      <video muted ref={userVideo} autoPlay playsInline />
+    <div style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '10px',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100vh'
+    }}>
+      <div style={{ width: 'calc(100% / 3)', height: 'calc(100% / 3)' }}>
+        <video ref={userVideo} autoPlay playsInline muted style={{ width: '100%', height: '100%' }} />
+      </div>
       {peers.map((peer, index) => (
-        <VideoPlayer key={index} stream={peer.streams[0]} />
+        <div key={index} style={{ width: 'calc(100% / 3)', height: 'calc(100% / 3)' }}>
+          <VideoPlayer stream={peer.streams[0]} />
+        </div>
       ))}
     </div>
   );

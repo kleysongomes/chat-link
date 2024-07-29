@@ -13,7 +13,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream }) => {
     }
   }, [stream]);
 
-  return <video ref={videoRef} autoPlay playsInline />;
+  return (
+    <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%' }} />
+  );
 };
 
 export default VideoPlayer;
